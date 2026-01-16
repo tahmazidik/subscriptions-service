@@ -1,0 +1,20 @@
+# Go
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+
+# OS
+.DS_Store
+
+# Swagger generated (если будем генерировать)
+docs/swagger.json
+docs/swagger.yaml
