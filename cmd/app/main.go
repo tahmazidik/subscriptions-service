@@ -4,15 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
 	"github.com/tahmazidik/subscriptions-service/internal/config"
 	"github.com/tahmazidik/subscriptions-service/internal/db"
+	httpapi "github.com/tahmazidik/subscriptions-service/internal/http"
 )
 
 func main() {
@@ -30,44 +28,16 @@ func main() {
 
 	defer pool.Close()
 
-	r := chi.NewRouter()
-
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
-
-	r.Get("/db/health", func(w http.ResponseWriter, r *http.Request) {
-		if err := pingDB(r.Context(), pool); err != nil {
-			http.Error(w, "db not ok: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("db ok"))
-	})
-
-	port := cfg.AppPort
-	if port == "" {
-		port = os.Getenv("APP_PORT")
-	}
-	if port == "" {
-		port = "8080"
-	}
+	handler := httpapi.NewRouter(pool)
 
 	srv := &http.Server{
-		Addr:              ":" + port,
-		Handler:           r,
+		Addr:              ":" + cfg.AppPort,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Printf("listening on :%s", port)
+	log.Printf("listening on :%s", cfg.AppPort)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
-}
-
-func pingDB(ctx context.Context, pool *pgxpool.Pool) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	return pool.Ping(ctx)
 }
