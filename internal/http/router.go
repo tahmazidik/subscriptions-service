@@ -34,6 +34,7 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/subscriptions", handler.Create)
+		r.Get("/subscriptions/{id}", handler.GetByID)
 	})
 
 	return r
