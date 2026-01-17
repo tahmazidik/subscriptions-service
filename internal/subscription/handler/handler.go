@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/tahmazidik/subscriptions-service/internal/subscription/model"
 	"github.com/tahmazidik/subscriptions-service/internal/subscription/repository"
 )
@@ -46,6 +47,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
+	if _, err := uuid.Parse(req.UserID); err != nil {
+		http.Error(w, "user_id must be UUID", http.StatusBadRequest)
+		return
+	}
 	if req.Price < 0 {
 		http.Error(w, "price must be >= 0", http.StatusBadRequest)
 		return
@@ -81,7 +86,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(created)
+	_ = json.NewEncoder(w).Encode(toResponse(created))
 }
 
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +108,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(s)
+	_ = json.NewEncoder(w).Encode(toResponse(s))
 }
 
 func parseMonthYear(s string) (time.Time, error) {
@@ -126,8 +131,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp := make([]subscriptionResponse, 0, len(items))
+	for _, sub := range items {
+		resp = append(resp, toResponse(sub))
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(items)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +163,10 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.UserID == "" {
 		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := uuid.Parse(req.UserID); err != nil {
+		http.Error(w, "user_id must be UUID", http.StatusBadRequest)
 		return
 	}
 
@@ -196,7 +210,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(updated)
+	_ = json.NewEncoder(w).Encode(toResponse(updated))
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -228,6 +242,10 @@ func (h *Handler) Total(w http.ResponseWriter, r *http.Request) {
 
 	if userID == "" {
 		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := uuid.Parse(userID); err != nil {
+		http.Error(w, "user_id must be UUID", http.StatusBadRequest)
 		return
 	}
 	if startStr == "" || endStr == "" {

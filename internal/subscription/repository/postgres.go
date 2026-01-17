@@ -77,7 +77,7 @@ func (r *Repo) List(ctx context.Context, userID, serviceName string) ([]model.Su
 	const q = `
 SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
 FROM subscriptions
-WHERE ($1 = '' OR user_id::text = $1)
+WHERE ($1 = '' OR user_id = $1::uuid)
   AND ($2 = '' OR service_name = $2)
 ORDER BY created_at DESC;
 `
@@ -167,7 +167,7 @@ func (r *Repo) ListForPeriod(ctx context.Context, userID, serviceName string, pe
 	const q = `
 SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
 FROM subscriptions
-WHERE user_id::text = $1
+WHERE user_id = $1::uuid
   AND ($2 = '' OR service_name = $2)
   AND start_date <= $4
   AND (end_date IS NULL OR end_date >= $3)
