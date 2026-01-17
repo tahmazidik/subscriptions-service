@@ -129,3 +129,93 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(items)
 }
+
+func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
+	if id == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	var req createRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	req.ServiceName = strings.TrimSpace(req.ServiceName)
+	req.UserID = strings.TrimSpace(req.UserID)
+
+	if req.ServiceName == "" {
+		http.Error(w, "service_name is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.Price < 0 {
+		http.Error(w, "price must be >= 0", http.StatusBadRequest)
+		return
+	}
+
+	start, err := parseMonthYear(req.StartDate)
+	if err != nil {
+		http.Error(w, "start_date must be MM-YYYY", http.StatusBadRequest)
+		return
+	}
+
+	var end *time.Time
+	if req.EndDate != nil && strings.TrimSpace(*req.EndDate) != "" {
+		ed, err := parseMonthYear(*req.EndDate)
+		if err != nil {
+			http.Error(w, "end_date must be MM-YYYY or null", http.StatusBadRequest)
+			return
+		}
+		end = &ed
+	}
+
+	updated, ok, err := h.repo.Update(r.Context(), id, model.Subscription{
+		ServiceName: req.ServiceName,
+		Price:       req.Price,
+		UserID:      req.UserID,
+		StartDate:   start,
+		EndDate:     end,
+	})
+
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !ok {
+		http.Error(w, "subscription not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updated)
+}
+
+func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
+	if id == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	ok, err := h.repo.Delete(r.Context(), id)
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !ok {
+		http.Error(w, "subscription not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

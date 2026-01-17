@@ -36,6 +36,8 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 		r.Post("/subscriptions", handler.Create)
 		r.Get("/subscriptions/{id}", handler.GetByID)
 		r.Get("/subscriptions", handler.List)
+		r.Put("/subscriptions/{id}", handler.Update)
+		r.Delete("/subscriptions/{id}", handler.Delete)
 	})
 
 	return r
