@@ -219,3 +219,77 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *Handler) Total(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
+	serviceName := strings.TrimSpace(r.URL.Query().Get("service_name"))
+	startStr := strings.TrimSpace(r.URL.Query().Get("start_date"))
+	endStr := strings.TrimSpace(r.URL.Query().Get("end_date"))
+
+	if userID == "" {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+	if startStr == "" || endStr == "" {
+		http.Error(w, "start_date and end_date are required", http.StatusBadRequest)
+		return
+	}
+
+	periodStart, err := parseMonthYear(startStr)
+	if err != nil {
+		http.Error(w, "start_date must be MM-YYYY", http.StatusBadRequest)
+		return
+	}
+	periodEnd, err := parseMonthYear(endStr)
+	if err != nil {
+		http.Error(w, "end_date must be MM-YYYY", http.StatusBadRequest)
+		return
+	}
+	if monthIndex(periodStart) > monthIndex(periodEnd) {
+		http.Error(w, "start_date must be before or equal to end_date", http.StatusBadRequest)
+		return
+	}
+
+	subs, err := h.repo.ListForPeriod(r.Context(), userID, serviceName, periodStart, periodEnd)
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	total := 0
+	for _, sub := range subs {
+		subEnd := periodEnd
+		if sub.EndDate != nil {
+			subEnd = *sub.EndDate
+		}
+
+		overlapStart := maxMonth(periodStart, sub.StartDate)
+		overlapEnd := minMonth(periodEnd, subEnd)
+
+		if monthIndex(overlapStart) > monthIndex(overlapEnd) {
+			continue
+		}
+
+		months := monthIndex(overlapEnd) - monthIndex(overlapStart) + 1
+		total += months * sub.Price
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]int{"total": total})
+}
+
+func monthIndex(t time.Time) int {
+	return t.Year()*12 + int(t.Month())
+}
+
+func maxMonth(a, b time.Time) time.Time {
+	if monthIndex(a) >= monthIndex(b) {
+		return a
+	}
+	return b
+}
+
+func minMonth(a, b time.Time) time.Time {
+	if monthIndex(a) <= monthIndex(b) {
+		return a
+	}
+	return b
+}

@@ -163,6 +163,47 @@ WHERE id = $1;
 	return cmdTag.RowsAffected() > 0, nil
 }
 
+func (r *Repo) ListForPeriod(ctx context.Context, userID, serviceName string, periodStart, periodEnd time.Time) ([]model.Subscription, error) {
+	const q = `
+SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
+FROM subscriptions
+WHERE user_id::text = $1
+  AND ($2 = '' OR service_name = $2)
+  AND start_date <= $4
+  AND (end_date IS NULL OR end_date >= $3)
+ORDER BY created_at DESC;
+`
+	rows, err := r.pool.Query(ctx, q, userID, serviceName, periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]model.Subscription, 0)
+	for rows.Next() {
+		var s model.Subscription
+		if err := rows.Scan(
+			&s.ID,
+			&s.ServiceName,
+			&s.Price,
+			&s.UserID,
+			&s.StartDate,
+			&s.EndDate,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
 func normalizeMonthPtr(t *time.Time) *time.Time {
 	if t == nil {
 		return nil
