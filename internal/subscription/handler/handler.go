@@ -115,3 +115,17 @@ func parseMonthYear(s string) (time.Time, error) {
 	// приводим к первому числу месяца (и UTC)
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
 }
+
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
+	serviceName := strings.TrimSpace(r.URL.Query().Get("service_name"))
+
+	items, err := h.repo.List(r.Context(), userID, serviceName)
+	if err != nil {
+		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(items)
+}

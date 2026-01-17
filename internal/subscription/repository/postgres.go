@@ -80,3 +80,40 @@ func normalizeMonthPtr(t *time.Time) *time.Time {
 	tt := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 	return &tt
 }
+
+func (r Repo) List(ctx context.Context, userID, serviceName string) ([]model.Subscription, error) {
+	const q = `
+SELECT id, service_name, price, user_id, start_date, end_date, created_at, updated_at
+FROM subscriptions
+WHERE ($1 = '' OR user_id::text = $1)
+  AND ($2 = '' OR service_name = $2)
+ORDER BY created_at DESC;
+`
+	rows, err := r.pool.Query(ctx, q, userID, serviceName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]model.Subscription, 0)
+	for rows.Next() {
+		var s model.Subscription
+		if err := rows.Scan(
+			&s.ID,
+			&s.ServiceName,
+			&s.Price,
+			&s.UserID,
+			&s.StartDate,
+			&s.EndDate,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
