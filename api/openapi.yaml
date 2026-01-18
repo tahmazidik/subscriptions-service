@@ -1,0 +1,275 @@
+openapi: 3.0.3
+info:
+  title: Subscriptions Service
+  version: "1.0.0"
+  description: REST-сервис для управления подписками и подсчёта суммарной стоимости.
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: ok
+
+  /db/health:
+    get:
+      summary: Database health check
+      responses:
+        "200":
+          description: DB OK
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: db ok
+        "500":
+          description: DB error
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/subscriptions:
+    post:
+      summary: Create subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionCreateRequest"
+            example:
+              service_name: Yandex Plus
+              price: 400
+              user_id: 60601fee-2bf1-4721-ae6f-7636e79a0cba
+              start_date: 07-2025
+              end_date: null
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
+        "400":
+          description: Validation error
+          content:
+            text/plain:
+              schema:
+                type: string
+    get:
+      summary: List subscriptions
+      parameters:
+        - in: query
+          name: user_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: service_name
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionResponse"
+        "400":
+          description: Validation error
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/subscriptions/{id}:
+    get:
+      summary: Get subscription by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
+        "404":
+          description: Not found
+          content:
+            text/plain:
+              schema:
+                type: string
+    put:
+      summary: Update subscription by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionCreateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionResponse"
+        "400":
+          description: Validation error
+          content:
+            text/plain:
+              schema:
+                type: string
+        "404":
+          description: Not found
+          content:
+            text/plain:
+              schema:
+                type: string
+    delete:
+      summary: Delete subscription by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not found
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/subscriptions/total:
+    get:
+      summary: Calculate total cost in period
+      parameters:
+        - in: query
+          name: user_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: service_name
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: start_date
+          required: true
+          schema:
+            type: string
+            example: 07-2025
+        - in: query
+          name: end_date
+          required: true
+          schema:
+            type: string
+            example: 10-2025
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotalResponse"
+              example:
+                total: 1192
+        "400":
+          description: Validation error
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    SubscriptionCreateRequest:
+      type: object
+      required: [service_name, price, user_id, start_date]
+      properties:
+        service_name:
+          type: string
+        price:
+          type: integer
+          minimum: 0
+        user_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          description: Month-Year
+          example: 07-2025
+        end_date:
+          type: string
+          nullable: true
+          description: Month-Year or null
+          example: 10-2025
+
+    SubscriptionResponse:
+      type: object
+      required: [id, service_name, price, user_id, start_date, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        service_name:
+          type: string
+        price:
+          type: integer
+        user_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          example: 07-2025
+        end_date:
+          type: string
+          nullable: true
+          example: 10-2025
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TotalResponse:
+      type: object
+      required: [total]
+      properties:
+        total:
+          type: integer
