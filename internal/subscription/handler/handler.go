@@ -10,14 +10,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/tahmazidik/subscriptions-service/internal/subscription/model"
 	"github.com/tahmazidik/subscriptions-service/internal/subscription/repository"
+	"github.com/tahmazidik/subscriptions-service/internal/subscription/service"
 )
 
 type Handler struct {
 	repo *repository.Repo
+	svc  *service.Service
 }
 
-func NewHandler(repo *repository.Repo) *Handler {
-	return &Handler{repo: repo}
+func NewHandler(repo *repository.Repo, svc *service.Service) *Handler {
+	return &Handler{
+		repo: repo,
+		svc:  svc,
+	}
 }
 
 type createRequest struct {
@@ -263,51 +268,17 @@ func (h *Handler) Total(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "end_date must be MM-YYYY", http.StatusBadRequest)
 		return
 	}
-	if monthIndex(periodStart) > monthIndex(periodEnd) {
+	if periodStart.After(periodEnd) {
 		http.Error(w, "start_date must be before or equal to end_date", http.StatusBadRequest)
 		return
 	}
 
-	subs, err := h.repo.ListForPeriod(r.Context(), userID, serviceName, periodStart, periodEnd)
+	total, err := h.svc.Total(r.Context(), userID, serviceName, periodStart, periodEnd)
 	if err != nil {
-		http.Error(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error calculating total: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	total := 0
-	for _, sub := range subs {
-		subEnd := periodEnd
-		if sub.EndDate != nil {
-			subEnd = *sub.EndDate
-		}
 
-		overlapStart := maxMonth(periodStart, sub.StartDate)
-		overlapEnd := minMonth(periodEnd, subEnd)
-
-		if monthIndex(overlapStart) > monthIndex(overlapEnd) {
-			continue
-		}
-
-		months := monthIndex(overlapEnd) - monthIndex(overlapStart) + 1
-		total += months * sub.Price
-	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]int{"total": total})
-}
-
-func monthIndex(t time.Time) int {
-	return t.Year()*12 + int(t.Month())
-}
-
-func maxMonth(a, b time.Time) time.Time {
-	if monthIndex(a) >= monthIndex(b) {
-		return a
-	}
-	return b
-}
-
-func minMonth(a, b time.Time) time.Time {
-	if monthIndex(a) <= monthIndex(b) {
-		return a
-	}
-	return b
 }
