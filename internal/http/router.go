@@ -10,6 +10,7 @@ import (
 
 	subhandler "github.com/tahmazidik/subscriptions-service/internal/subscription/handler"
 	subrepo "github.com/tahmazidik/subscriptions-service/internal/subscription/repository"
+	subsvc "github.com/tahmazidik/subscriptions-service/internal/subscription/service"
 )
 
 func NewRouter(pool *pgxpool.Pool) http.Handler {
@@ -30,7 +31,8 @@ func NewRouter(pool *pgxpool.Pool) http.Handler {
 	})
 
 	repo := subrepo.NewRepo(pool)
-	handler := subhandler.NewHandler(repo)
+	svc := subsvc.New(repo)
+	handler := subhandler.NewHandler(repo, svc)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/subscriptions", handler.Create)
